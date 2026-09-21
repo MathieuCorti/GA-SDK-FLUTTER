@@ -46,6 +46,7 @@ jobs:
         run: |
           python3 tool/quality_check.py check
           python3 -B tool/test_ci_impact.py
+          python3 -B tool/test_check_checkout.py
 
       - name: Select affected work
         id: impact
@@ -109,7 +110,7 @@ jobs:
           python3 tool/check_archive.py "$RUNNER_TEMP/pub-dry-run.log"
 
       - name: Verify tracked checkout is unchanged
-        run: git diff --exit-code
+        run: python3 -B tool/check_checkout.py
 
   quality:
     name: Quality
