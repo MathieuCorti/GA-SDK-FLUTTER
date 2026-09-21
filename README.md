@@ -24,3 +24,9 @@ Only affected surfaces build; documentation changes run local policy checks.
 The example's build tooling is a development harness, not a change to the
 plugin's consumer requirements. No example build launches analytics or publishes
 a package. The legacy JavaScript bridge builds to JavaScript, not WebAssembly.
+
+CocoaPods can serialize an empty dependency array differently across JSON gem
+versions ([upstream issue](https://github.com/CocoaPods/CocoaPods/issues/12807)).
+The CI checkout check permits only those two reproduced checksums of the same
+local podspec, verifies the installed spec matches its source, and still rejects
+all dependency, version, external-checksum or other tracked-file changes.
