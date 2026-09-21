@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 
-import 'package:flutter/services.dart';
 import 'package:gameanalytics_sdk/gameanalytics.dart';
 
 void main() {
