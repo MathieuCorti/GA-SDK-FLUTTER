@@ -1,4 +1,6 @@
 import 'dart:async';
+// Keep the Dart 2.12-compatible bridge; modern web interop needs a separate API migration.
+// ignore: deprecated_member_use
 import 'dart:html' as html show window;
 import 'dart:convert';
 
@@ -52,12 +54,6 @@ class GameAnalyticsWeb {
         final List<String> list =
             List<String>.from(jsonDecode(resourceCurrencies));
         GameAnalyticsJS.configureSdkGameEngineVersion("flutter " + VERSION);
-        GameAnalyticsJS.configureAvailableResourceCurrencies(list);
-        break;
-      case 'configureAvailableResourceCurrencies':
-        final String resourceCurrencies = call.arguments["resourceCurrencies"];
-        final List<String> list =
-            List<String>.from(jsonDecode(resourceCurrencies));
         GameAnalyticsJS.configureAvailableResourceCurrencies(list);
         break;
       case 'configureAvailableResourceItemTypes':
@@ -204,10 +200,6 @@ class GameAnalyticsWeb {
       case 'setCustomDimension02':
         final String dimension = call.arguments["dimension"];
         GameAnalyticsJS.setCustomDimension02(dimension);
-        break;
-      case 'setCustomDimension03':
-        final String dimension = call.arguments["dimension"];
-        GameAnalyticsJS.setCustomDimension03(dimension);
         break;
       case 'setCustomDimension03':
         final String dimension = call.arguments["dimension"];

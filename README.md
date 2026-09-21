@@ -10,3 +10,17 @@ If you have any issues or feedback regarding the SDK, please contact our friendl
 > The Flutter SDK include support for **iOS**, **Android** and **Web** platforms
 
 [Changelog](CHANGELOG.md)
+
+## Repository development
+
+Development uses the Flutter version pinned in `.fvmrc`; the package still
+supports Dart >=2.12 <4 and Flutter >=2.0. Read the repository's `AGENTS.md` for the
+project-local engineering policy and focused validation commands. Start with
+`fvm flutter pub get --no-example` and `bash tool/validate.sh`; use `--ci` when
+verifying the existing channel-contract suite.
+
+The CI keeps analysis, Android, unsigned iOS, web and archive checks separate.
+Only affected surfaces build; documentation changes run local policy checks.
+The example's build tooling is a development harness, not a change to the
+plugin's consumer requirements. No example build launches analytics or publishes
+a package. The legacy JavaScript bridge builds to JavaScript, not WebAssembly.
