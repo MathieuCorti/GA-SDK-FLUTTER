@@ -1,0 +1,123 @@
+name: Quality
+
+"on":
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  validate:
+    name: ${{ matrix.gate }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - gate: analysis
+            runner: ubuntu-24.04
+          - gate: android
+            runner: ubuntu-24.04
+          - gate: ios
+            runner: macos-15
+          - gate: web
+            runner: ubuntu-24.04
+          - gate: package
+            runner: ubuntu-24.04
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Validate local policy
+        run: |
+          python3 tool/quality_check.py check
+          python3 -B tool/test_ci_impact.py
+
+      - name: Select affected work
+        id: impact
+        env:
+          CI_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: >-
+          python3 tool/ci_impact.py --gate "${{ matrix.gate }}"
+          --base "$CI_BASE_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Java
+        if: steps.impact.outputs.enabled == 'true' && matrix.gate == 'android'
+        uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5.6.0
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Restore Flutter and pub caches
+        if: steps.impact.outputs.enabled == 'true'
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: |
+            ${{ runner.tool_cache }}/flutter/3.35.3
+            ~/.pub-cache
+          key: flutter-${{ runner.os }}-${{ runner.arch }}-3.35.3-a402d9a4376add5bc2d6b1e33e53edaae58c07f8-${{ hashFiles('**/pubspec.yaml') }}
+
+      - name: Install pinned development SDK
+        if: steps.impact.outputs.enabled == 'true'
+        run: |
+          flutter_root="$RUNNER_TOOL_CACHE/flutter/3.35.3"
+          if [ ! -x "$flutter_root/bin/flutter" ]; then
+            mkdir -p "$RUNNER_TOOL_CACHE/flutter"
+            git clone --branch 3.35.3 --depth=1 https://github.com/flutter/flutter.git "$flutter_root"
+          fi
+          test "$(git -C "$flutter_root" rev-parse HEAD)" = a402d9a4376add5bc2d6b1e33e53edaae58c07f8
+          printf '%s/bin\n' "$flutter_root" >> "$GITHUB_PATH"
+          "$flutter_root/bin/flutter" config --no-analytics
+          "$flutter_root/bin/flutter" --version
+
+      - name: Analyze and verify channel contracts
+        if: steps.impact.outputs.enabled == 'true' && matrix.gate == 'analysis'
+        run: |
+          flutter pub get --no-example
+          flutter analyze --no-pub --fatal-infos --fatal-warnings lib test
+          flutter test --no-pub
+          cd example
+          flutter pub get
+          flutter analyze --no-pub --fatal-infos --fatal-warnings lib
+
+      - name: Compile affected example platform
+        if: >-
+          steps.impact.outputs.enabled == 'true' &&
+          (matrix.gate == 'android' || matrix.gate == 'ios' || matrix.gate == 'web')
+        run: bash tool/build_example.sh "${{ matrix.gate }}"
+
+      - name: Validate package archive without publishing
+        if: steps.impact.outputs.enabled == 'true' && matrix.gate == 'package'
+        run: |
+          flutter pub get --no-example
+          flutter pub publish --dry-run --verbose 2>&1 | tee "$RUNNER_TEMP/pub-dry-run.log"
+          python3 tool/check_archive.py "$RUNNER_TEMP/pub-dry-run.log"
+
+      - name: Verify tracked checkout is unchanged
+        run: git diff --exit-code
+
+  quality:
+    name: Quality
+    if: always()
+    needs: validate
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require successful selected work
+        env:
+          VALIDATION_RESULT: ${{ needs.validate.result }}
+        run: test "$VALIDATION_RESULT" = success
